@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {
   Alert,
   Button,
@@ -7,115 +7,91 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   useColorScheme,
   View,
 } from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
 
 import NativeSampleModule from './js/NativeSampleModule';
 
 import performance from 'react-native-performance';
+import {runChunked, runParallel, runSequential, TestResult} from './scenarios';
+import {VerticalGap} from './src/components/VerticalGap';
 
-const Section: React.FC<{
-  title: string;
-}> = ({children, title}) => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
+enum Scenario {
+  WAITING = 'waiting',
+  SEQ = 'Sequential',
+  ALL = 'Simultaneous',
+  CHUNK = 'Chunked',
+}
 
 const App = () => {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [testRunning, setTestRunning] = useState<Scenario>(Scenario.WAITING);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  const runScenario = (scenario: Scenario) => async () => {
+    setTestRunning(scenario);
+    let result: TestResult;
 
-  const showMessage = () => {
-    const start = performance.now();
-    let m;
-    for (let i = 0; i < 10000; i++) {
-      m = NativeSampleModule.getString();
+    switch (scenario) {
+      case Scenario.ALL:
+        result = await runParallel();
+        break;
+      case Scenario.SEQ:
+        result = await runSequential();
+        break;
+      case Scenario.CHUNK:
+        result = await runChunked();
+        break;
+      default:
+        setTestRunning(Scenario.WAITING);
+        Alert.alert('Bad scenario');
+        return;
     }
-    const delta = performance.now() - start;
-    Alert.alert(`${m} ${delta / 10000}`);
+
+    const {deltaMs, loops} = result;
+    Alert.alert(
+      `${scenario}${'\n'}${
+        (deltaMs / loops).toFixed(6)
+      }ms avg${'\n'}Total ${deltaMs}ms for ${loops} loops`,
+    );
+    setTestRunning(Scenario.WAITING);
   };
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <Button title="Click here" onPress={showMessage} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Turbo Benchmark</Text>
+      {testRunning === Scenario.WAITING ? (
+        <View>
+          <VerticalGap />
+          <Button title="Sequential" onPress={runScenario(Scenario.SEQ)} />
+          <VerticalGap />
+          <Button title="All at Once" onPress={runScenario(Scenario.ALL)} />
+          <VerticalGap />
+          <Button title="Chunked" onPress={runScenario(Scenario.CHUNK)} />
         </View>
-      </ScrollView>
+      ) : (
+        <Text>Test Running...</Text>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
+  container: {
+    margin: 32,
     paddingHorizontal: 24,
+    justifyContent: 'flex-start',
+    flex: 1,
   },
-  sectionTitle: {
+  title: {
     fontSize: 24,
+    textAlign: 'center',
     fontWeight: '600',
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  button: {
+    margin: 20,
   },
 });
 

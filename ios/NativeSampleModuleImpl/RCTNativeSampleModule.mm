@@ -4,14 +4,16 @@
 
 @implementation NativeSampleModule
 
-RCT_EXPORT_MODULE()
+RCT_EXPORT_MODULE(NativeSampleModule)
+
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:(const facebook::react::ObjCTurboModule::InitParams &)params {
   return std::make_shared<facebook::react::NativeSampleModuleSpecJSI>(params);
 }
 
-- (NSString *)getString {
-  return @"T:";
+
+- (void)stringPromise:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  resolve(@"hello");
 }
 
 @end
